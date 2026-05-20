@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Chat</title>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+    <ul id="chat-history">
+        <li>Connecting to chat...</li>
+    </ul>
+
+    <form id="message-box">
+        <input type="text" name="message" placeholder="Write a lovely message..." aria-label="Message composer" />
+        <button aria-label="Send message">Send</button>
+    </form>
+
+    <script>
+        const sse = new EventSource("/connect")
+
+        const chatHistory = document.querySelector("#chat-history")
+        const messageBox = document.querySelector("#message-box")
+
+        messageBox.addEventListener("submit", event => {
+            event.preventDefault()
+
+            const input = event.target.querySelector("input")
+            const value = input.value
+
+            if (value.trim() === "") {
+                return
+            }
+
+            fetch("/message", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: value.trim() }),
+            })
+
+            input.value = ""
+        })
+
+        sse.addEventListener("open", event => {
+            sendMessage(chatHistory, "Connected successfully!")
+        })
+
+        sse.addEventListener("error", event => {
+            console.error("[sse] connection error:", event)
+
+            sendMessage(chatHistory, "Failed to connect to server...")
+        })
+
+        sse.addEventListener("message", event => {
+            const message = atob(event.data)
+
+            sendMessage(chatHistory, message)
+        })
+
+        function sendMessage(parent, message) {
+            const element = document.createElement("li")
+            element.innerText = message
+
+            parent.appendChild(element)
+            parent.scrollTo({ behavior: "smooth", top: parent.scrollHeight })
+        }
+    </script>
+</body>
+</html>
