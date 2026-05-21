@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 
-go build -o web cmd/web/main.go
+go build -o dest/web cmd/web/main.go
 
-./web
+./dest/web
