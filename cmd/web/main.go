@@ -10,11 +10,13 @@ import (
 	"git.leggy.dev/Fluffy/GoSSE/internal/sse"
 )
 
+const secret = "ManedWolves"
+
 func main() {
 	ctx := context.Background()
 
 	s := sse.NewSSE(ctx)
-	h := handler.NewHandler(s)
+	h := handler.NewHandler(s, secret)
 	r := http.NewServeMux()
 
 	routes.RegisterRoutes(h, r)

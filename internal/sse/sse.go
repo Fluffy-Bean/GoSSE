@@ -50,11 +50,11 @@ func (s *SSE) Subscribe(connection *Connection) {
 	s.mut.Lock()
 	defer s.mut.Unlock()
 
-	id := s.counter.Add(1)
+	if connection.ID == 0 {
+		connection.ID = s.counter.Add(1)
+	}
 
-	connection.ID = id
-
-	s.connections[id] = connection
+	s.connections[connection.ID] = connection
 }
 
 func (s *SSE) Unsubscribe(connection *Connection) {
@@ -73,7 +73,7 @@ func (s *SSE) Keepalive() {
 	}
 }
 
-func (s *SSE) Broadcast(message string) {
+func (s *SSE) Broadcast(message Message) {
 	s.mut.Lock()
 	defer s.mut.Unlock()
 

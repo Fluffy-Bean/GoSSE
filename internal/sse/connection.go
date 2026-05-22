@@ -2,18 +2,18 @@ package sse
 
 type Connection struct {
 	ID        int64
-	Messages  chan string
+	Messages  chan Message
 	Heartbeat chan bool
 }
 
 func NewConnection() *Connection {
 	return &Connection{
-		Messages:  make(chan string),
+		Messages:  make(chan Message),
 		Heartbeat: make(chan bool),
 	}
 }
 
-func (c *Connection) QueueMessage(message string) {
+func (c *Connection) QueueMessage(message Message) {
 	c.Messages <- message
 }
 

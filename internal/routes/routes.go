@@ -3,6 +3,7 @@ package routes
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"log/slog"
 	"net/http"
@@ -43,6 +44,24 @@ func connGet(h *handler.Handler) http.HandlerFunc {
 		rc := http.NewResponseController(w)
 		conn := sse.NewConnection()
 
+		// Restore user ID on reconnect
+		claims, _ := h.GetToken(r)
+		if claims != nil {
+			conn.ID = claims.Sub
+		}
+
+		h.SSE.Subscribe(conn)
+		defer h.SSE.Unsubscribe(conn)
+
+		// Assign new JWT token if not already had one
+		if claims == nil {
+			if err := h.SetToken(w, conn.ID); err != nil {
+				slog.Error("set token", "error", err)
+
+				return
+			}
+		}
+
 		w.Header().Set("content-type", "text/event-stream")
 		w.Header().Set("cache-control", "no-cache")
 		w.Header().Set("connection", "keep-alive")
@@ -54,9 +73,6 @@ func connGet(h *handler.Handler) http.HandlerFunc {
 
 			return
 		}
-
-		h.SSE.Subscribe(conn)
-		defer h.SSE.Unsubscribe(conn)
 
 		rc.SetWriteDeadline(time.Now().Add(h.SSE.Heartbeat * 2))
 
@@ -81,10 +97,11 @@ func connGet(h *handler.Handler) http.HandlerFunc {
 					return
 				}
 
-				data := base64.StdEncoding.EncodeToString([]byte(message))
+				userBase64 := base64Encode(fmt.Sprintf("%d", message.UserID))
+				messageBase64 := base64Encode(message.Message)
 
 				w.Write([]byte("event: message\n"))
-				w.Write([]byte("data: " + data + "\n"))
+				w.Write([]byte("data: " + userBase64 + "." + messageBase64 + "\n"))
 				w.Write([]byte("\n\n"))
 
 				if err := rc.Flush(); err != nil {
@@ -102,7 +119,15 @@ func connGet(h *handler.Handler) http.HandlerFunc {
 
 func messagePost(h *handler.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		claims, err := h.GetToken(r)
+		if err != nil {
+			slog.Error("get token", "error", err)
+
+			return
+		}
+
 		var input struct {
+			UserID  int64
 			Message string `json:"message"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
@@ -111,8 +136,14 @@ func messagePost(h *handler.Handler) http.HandlerFunc {
 			return
 		}
 
-		go h.SSE.Broadcast(input.Message)
+		input.UserID = claims.Sub
+
+		go h.SSE.Broadcast(sse.Message(input))
 
 		w.WriteHeader(http.StatusAccepted)
 	}
+}
+
+func base64Encode(src string) string {
+	return base64.RawURLEncoding.EncodeToString([]byte(src))
 }

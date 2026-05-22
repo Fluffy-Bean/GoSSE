@@ -42,24 +42,32 @@
         })
 
         sse.addEventListener("open", event => {
-            sendMessage(chatHistory, "Connected successfully!")
+            sendMessage(chatHistory, 0, "Connected successfully!")
         })
 
         sse.addEventListener("error", event => {
             console.error("[sse] connection error:", event)
 
-            sendMessage(chatHistory, "Failed to connect to server...")
+            sendMessage(chatHistory, 0, "Failed to connect to server...")
         })
 
         sse.addEventListener("message", event => {
-            const message = atob(event.data)
+            const parts = event.data.split(".")
+            if (parts.length !== 2) {
+                console.error("incorrect amount of message parts")
 
-            sendMessage(chatHistory, message)
+                return
+            }
+
+            const userId = atob(parts[0])
+            const message = atob(parts[1])
+
+            sendMessage(chatHistory, userId, message)
         })
 
-        function sendMessage(parent, message) {
+        function sendMessage(parent, userId, message) {
             const element = document.createElement("li")
-            element.innerText = message
+            element.innerText = `[${userId}] ${message}`
 
             parent.appendChild(element)
             parent.scrollTo({ behavior: "smooth", top: parent.scrollHeight })
